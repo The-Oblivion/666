@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chrono-Arcade: Rift Runner</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <div>
+          <h1>Chrono-Arcade: Rift Runner</h1>
+          <p class="subtitle">
+            Bend time, hack reality, and escape the neon labyrinth.
+          </p>
+        </div>
+        <div class="status-panel">
+          <div class="status" id="status-health">Health: 100</div>
+          <div class="status" id="status-energy">Energy: 100</div>
+          <div class="status" id="status-score">Score: 0</div>
+          <div class="status" id="status-combo">Combo: x0</div>
+          <div class="status status-muted" id="status-paused">Running</div>
+          <div class="status" id="status-time">Cycle: 1</div>
+        </div>
+      </header>
+
+      <main>
+        <section class="arena">
+          <div class="grid" id="grid"></div>
+          <div class="overlay" id="overlay">
+            <div class="overlay-card">
+              <h2>Rift Runner</h2>
+              <p>
+                Traverse 12 cycles of the neon labyrinth. Collect chrono cores,
+                dodge anomalies, and keep your energy stable. Trigger combos by
+                chaining pickups!
+              </p>
+              <button id="start-btn">Start the Run</button>
+            </div>
+          </div>
+        </section>
+        <section class="controls">
+          <h2>Controls</h2>
+          <ul>
+            <li><strong>WASD / Arrow Keys:</strong> Move</li>
+            <li><strong>Space:</strong> Time Pulse (freeze anomalies)</li>
+            <li><strong>E:</strong> Emit Energy Burst (clear nearby hazards)</li>
+            <li><strong>Q:</strong> Warp (random safe hop)</li>
+            <li><strong>R:</strong> Restart cycle</li>
+            <li><strong>P:</strong> Pause / Resume</li>
+          </ul>
+          <div class="objective" id="objective">
+            Objective: Reach the portal in each cycle before health collapses.
+          </div>
+          <div class="ability-bar">
+            <button class="ability" id="ability-pulse">
+              <span>
+                Time Pulse <span class="ability-meta">(18 energy)</span>
+              </span>
+              <span class="cooldown" id="cooldown-pulse">Ready</span>
+            </button>
+            <button class="ability" id="ability-burst">
+              <span>
+                Energy Burst <span class="ability-meta">(20 energy)</span>
+              </span>
+              <span class="cooldown" id="cooldown-burst">Ready</span>
+            </button>
+            <button class="ability" id="ability-warp">
+              <span>Warp <span class="ability-meta">(25 energy)</span></span>
+              <span class="cooldown" id="cooldown-warp">Ready</span>
+            </button>
+          </div>
+          <div class="tips">
+            <h3>Pro Tips</h3>
+            <ul>
+              <li>Chain chrono cores for combo bonuses and faster energy gains.</li>
+              <li>Use Time Pulse before stepping into tight corridors.</li>
+              <li>Warp is safest when anomalies cluster near the portal.</li>
+            </ul>
+          </div>
+          <div class="upgrades" id="upgrades"></div>
+          <div class="touch-controls" aria-label="Touch controls">
+            <div class="touch-row">
+              <button class="touch-btn" data-move="up">▲</button>
+            </div>
+            <div class="touch-row">
+              <button class="touch-btn" data-move="left">◀</button>
+              <button class="touch-btn" data-move="down">▼</button>
+              <button class="touch-btn" data-move="right">▶</button>
+            </div>
+          </div>
+          <div class="log" id="log"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
