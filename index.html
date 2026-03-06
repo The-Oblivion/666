@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neon Noodle Frenzy</title>
+  <style>
+    :root {
+      --bg: #090414;
+      --panel: #171129;
+      --accent: #58f2ff;
+      --accent2: #ff65c4;
+      --good: #9cff57;
+      --warn: #ffd857;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 20% 10%, #23173c, var(--bg) 45%);
+      color: white;
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    }
+
+    .wrap {
+      width: min(94vw, 840px);
+      display: grid;
+      gap: 12px;
+    }
+
+    .hud {
+      background: linear-gradient(160deg, #1f1535, var(--panel));
+      border: 2px solid #3d2d65;
+      border-radius: 14px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      box-shadow: 0 10px 26px rgba(0,0,0,.35);
+    }
+
+    .hud h1 {
+      margin: 0;
+      font-size: clamp(1.1rem, 2.6vw, 1.6rem);
+      color: var(--accent);
+      text-shadow: 0 0 8px rgba(88,242,255,.4);
+    }
+
+    .stats { display: flex; gap: 14px; font-weight: 700; }
+    .stat { color: #e4deff; }
+    .stat strong { color: var(--good); }
+
+    #game {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      border-radius: 16px;
+      border: 2px solid #493275;
+      background: #120b22;
+      box-shadow: 0 18px 40px rgba(0,0,0,.45);
+      image-rendering: pixelated;
+    }
+
+    .help {
+      margin: 0;
+      background: #130d24;
+      border: 1px solid #3b2c63;
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: #d8cdf8;
+      font-size: .95rem;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      margin-inline: 2px;
+      border-radius: 999px;
+      background: #2d214d;
+      color: #ffe6f7;
+      border: 1px solid #4e3b7f;
+      font-weight: 700;
+      font-size: .85rem;
+    }
+
+    .warn { color: var(--warn); }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hud">
+      <h1>🍜 Neon Noodle Frenzy</h1>
+      <div class="stats">
+        <span class="stat">Score: <strong id="score">0</strong></span>
+        <span class="stat">Best: <strong id="best">0</strong></span>
+        <span class="stat">Speed: <strong id="speed">1.0x</strong></span>
+      </div>
+    </section>
+
+    <canvas id="game" width="960" height="600" aria-label="Neon Noodle Frenzy game"></canvas>
+
+    <p class="help">
+      Steer with <span class="pill">Arrow Keys</span> or <span class="pill">W A S D</span>. Grab sparkly dumplings, avoid glitch cubes, and chain combos!
+      <span class="warn">Crash = noodle splat.</span> Press <span class="pill">Space</span> to restart.
+    </p>
+  </main>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const bestEl = document.getElementById('best');
+    const speedEl = document.getElementById('speed');
+
+    const W = canvas.width;
+    const H = canvas.height;
+    const grid = 24;
+
+    const keyMap = {
+      ArrowUp: [0, -1], KeyW: [0, -1],
+      ArrowDown: [0, 1], KeyS: [0, 1],
+      ArrowLeft: [-1, 0], KeyA: [-1, 0],
+      ArrowRight: [1, 0], KeyD: [1, 0],
+    };
+
+    const palette = {
+      player: '#58f2ff',
+      head: '#b5f9ff',
+      food: '#ff65c4',
+      bad: '#ff3f5f',
+      bgA: '#1f1435',
+      bgB: '#130d24',
+      spark: '#fff3ad',
+      text: '#efe8ff'
+    };
+
+    let noodle = [];
+    let dir = { x: 1, y: 0 };
+    let nextDir = { x: 1, y: 0 };
+    let food = null;
+    let hazards = [];
+    let sparks = [];
+    let score = 0;
+    let best = Number(localStorage.getItem('noodle-best') || 0);
+    let combo = 0;
+    let gameOver = false;
+    let tickEvery = 130;
+    let lastTick = 0;
+
+    bestEl.textContent = best;
+
+    function randCell() {
+      return {
+        x: Math.floor(Math.random() * (W / grid)),
+        y: Math.floor(Math.random() * (H / grid)),
+      };
+    }
+
+    function sameCell(a, b) {
+      return a.x === b.x && a.y === b.y;
+    }
+
+    function occupied(cell) {
+      return noodle.some(n => sameCell(n, cell)) || hazards.some(h => sameCell(h, cell));
+    }
+
+    function spawnFood() {
+      let c = randCell();
+      while (occupied(c)) c = randCell();
+      food = c;
+    }
+
+    function spawnHazard() {
+      let c = randCell();
+      while (occupied(c) || sameCell(c, food)) c = randCell();
+      hazards.push(c);
+    }
+
+    function reset() {
+      noodle = [
+        { x: 7, y: 12 },
+        { x: 6, y: 12 },
+        { x: 5, y: 12 },
+      ];
+      dir = { x: 1, y: 0 };
+      nextDir = { x: 1, y: 0 };
+      hazards = [];
+      sparks = [];
+      score = 0;
+      combo = 0;
+      gameOver = false;
+      tickEvery = 130;
+      spawnFood();
+      spawnHazard();
+      scoreEl.textContent = '0';
+      speedEl.textContent = '1.0x';
+    }
+
+    function burst(x, y, count = 14, color = palette.spark) {
+      for (let i = 0; i < count; i++) {
+        sparks.push({
+          x: x * grid + grid / 2,
+          y: y * grid + grid / 2,
+          vx: (Math.random() - 0.5) * 5,
+          vy: (Math.random() - 0.5) * 5,
+          life: 18 + Math.random() * 18,
+          color,
+        });
+      }
+    }
+
+    function update(dt) {
+      if (!gameOver && dt - lastTick >= tickEvery) {
+        lastTick = dt;
+        dir = nextDir;
+        const head = {
+          x: (noodle[0].x + dir.x + W / grid) % (W / grid),
+          y: (noodle[0].y + dir.y + H / grid) % (H / grid),
+        };
+
+        if (noodle.some((seg, i) => i > 0 && sameCell(seg, head)) || hazards.some(h => sameCell(h, head))) {
+          gameOver = true;
+          burst(head.x, head.y, 40, '#ff7d9f');
+          if (score > best) {
+            best = score;
+            localStorage.setItem('noodle-best', String(best));
+            bestEl.textContent = best;
+          }
+        } else {
+          noodle.unshift(head);
+          if (sameCell(head, food)) {
+            combo += 1;
+            const points = 10 + combo * 3;
+            score += points;
+            scoreEl.textContent = score;
+            burst(food.x, food.y, 20, '#ffe68e');
+            spawnFood();
+
+            if (combo % 3 === 0 && hazards.length < 18) {
+              spawnHazard();
+            }
+
+            tickEvery = Math.max(62, tickEvery - 1.8);
+            speedEl.textContent = (130 / tickEvery).toFixed(1) + 'x';
+          } else {
+            noodle.pop();
+            combo = 0;
+          }
+        }
+      }
+
+      sparks = sparks.filter(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+        p.life -= 1;
+        return p.life > 0;
+      });
+    }
+
+    function drawGrid() {
+      for (let y = 0; y < H / grid; y++) {
+        for (let x = 0; x < W / grid; x++) {
+          ctx.fillStyle = (x + y) % 2 ? palette.bgA : palette.bgB;
+          ctx.fillRect(x * grid, y * grid, grid, grid);
+        }
+      }
+    }
+
+    function drawRoundedCell(c, color, pad = 2, radius = 6) {
+      const x = c.x * grid + pad;
+      const y = c.y * grid + pad;
+      const s = grid - pad * 2;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + s, y, x + s, y + s, radius);
+      ctx.arcTo(x + s, y + s, x, y + s, radius);
+      ctx.arcTo(x, y + s, x, y, radius);
+      ctx.arcTo(x, y, x + s, y, radius);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function draw() {
+      drawGrid();
+
+      if (food) {
+        drawRoundedCell(food, palette.food, 3, 8);
+        ctx.fillStyle = 'rgba(255,255,255,.8)';
+        ctx.beginPath();
+        ctx.arc(food.x * grid + grid * 0.6, food.y * grid + grid * 0.35, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      hazards.forEach((h, i) => {
+        const hue = 350 + (i * 14) % 30;
+        drawRoundedCell(h, `hsl(${hue} 95% 61%)`, 4, 5);
+      });
+
+      noodle.forEach((seg, i) => {
+        drawRoundedCell(seg, i === 0 ? palette.head : palette.player, i === 0 ? 1 : 2, 7);
+      });
+
+      sparks.forEach(p => {
+        ctx.globalAlpha = Math.max(0, p.life / 30);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, 3, 3);
+      });
+      ctx.globalAlpha = 1;
+
+      if (gameOver) {
+        ctx.fillStyle = 'rgba(13,7,22,.75)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = palette.text;
+        ctx.font = '900 52px Trebuchet MS';
+        ctx.fillText('NOODLE SPLAT!', W / 2, H / 2 - 20);
+        ctx.font = '700 28px Trebuchet MS';
+        ctx.fillStyle = '#ffd857';
+        ctx.fillText(`Final Score: ${score}`, W / 2, H / 2 + 24);
+        ctx.fillStyle = '#d9cbff';
+        ctx.font = '600 20px Trebuchet MS';
+        ctx.fillText('Press SPACE to launch another noodle run', W / 2, H / 2 + 64);
+      }
+    }
+
+    function loop(t) {
+      update(t);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && gameOver) {
+        reset();
+        return;
+      }
+
+      const move = keyMap[e.code];
+      if (!move || gameOver) return;
+
+      const [x, y] = move;
+      if (x === -dir.x && y === -dir.y) return;
+      nextDir = { x, y };
+    });
+
+    reset();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
